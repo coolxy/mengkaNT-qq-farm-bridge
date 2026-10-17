@@ -9,7 +9,7 @@ QQ农场助手桥接 v1.2.0
   Windows 版萌卡：qq-farm-bridge-1.2.0-windows-amd64.zip
   Linux 版萌卡  ：qq-farm-bridge-1.2.0-linux-amd64.zip
 导入后勾选"来源可信"，并在卡片「配置」里填：
-  农场面板地址  https://farm.qqai.ren:59443
+  农场面板地址  https://farm.XXX
   农场管理员     admin
   农场管理员密码  （secret，只存框架加密配置）
 
