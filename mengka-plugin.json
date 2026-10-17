@@ -1,0 +1,96 @@
+{
+  "schema": 3,
+  "plugin_id": "qq-farm-bridge",
+  "name": "QQ农场助手桥接",
+  "version": "1.2.0",
+  "min_framework": "2.4.1",
+  "author": "WorkBuddy",
+  "description": "把萌卡在线 QQ 的农场登录 code 定时推送到 QQ农场智能助手（qq-farm-bot），并可在插件管理页一键手动推送。",
+  "notes": "v1.2.0：修复在线账号筛选（二次归一化导致 0 目标）；管理端初始化兼容 native-ipc 连接文件；包含 v1.1.0 全部功能——插件管理页「⚡ 立即推送 code 到农场」、在线 QQ 列表、推送明细、Android/Linux 推送开关；Windows 与 Linux 版萌卡均可安装。",
+  "runtime": {
+    "entry": "bin/node-linux-amd64",
+    "args": [
+      "native.mjs"
+    ],
+    "transport": "native-ipc-v1",
+    "api_version": "1",
+    "admin": true,
+    "actions": [
+      "get_bot_list",
+      "get_qq_farm_code",
+      "get_plugin_context"
+    ]
+  },
+  "config": {
+    "schema": 1,
+    "fields": [
+      {
+        "key": "farm_url",
+        "label": "农场面板地址",
+        "type": "string",
+        "group": "农场连接",
+        "required": true,
+        "default": "https://farm.qqai.ren:59443",
+        "placeholder": "https://farm.qqai.ren:59443",
+        "description": "QQ农场智能助手（qq-farm-bot）面板的访问地址"
+      },
+      {
+        "key": "farm_username",
+        "label": "农场管理员用户名",
+        "type": "string",
+        "group": "农场连接",
+        "required": true,
+        "default": "admin",
+        "description": "农场面板管理员账号"
+      },
+      {
+        "key": "farm_password",
+        "label": "农场管理员密码",
+        "type": "string",
+        "group": "农场连接",
+        "required": true,
+        "secret": true,
+        "description": "农场面板管理员密码，只写入框架加密配置，不在接口中回显"
+      },
+      {
+        "key": "interval_minutes",
+        "label": "自动推送间隔（分钟）",
+        "type": "integer",
+        "group": "推送设置",
+        "required": false,
+        "default": 5,
+        "min": 1,
+        "max": 120,
+        "step": 1,
+        "description": "每隔多少分钟为在线 QQ 重新取码并推送一次"
+      },
+      {
+        "key": "qq_filter",
+        "label": "仅推送指定 QQ（可选）",
+        "type": "text",
+        "group": "推送设置",
+        "required": false,
+        "placeholder": "如 258901523,910009183，留空表示全部在线安卓 QQ",
+        "description": "逗号分隔的 QQ 号列表；留空则推送全部在线账号"
+      },
+      {
+        "key": "push_android",
+        "label": "推送 Android QQ",
+        "type": "boolean",
+        "group": "推送设置",
+        "required": false,
+        "default": true,
+        "description": "主推送渠道，保持开启；关闭后安卓 QQ 不再取码"
+      },
+      {
+        "key": "push_linux",
+        "label": "推送 Linux QQ（实验）",
+        "type": "boolean",
+        "group": "推送设置",
+        "required": false,
+        "default": false,
+        "description": "Linux 协议的农场取码不受官方支持，开启后会逐个尝试，失败的账号在推送结果中单独标出"
+      }
+    ]
+  }
+}
