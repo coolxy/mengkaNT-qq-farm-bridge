@@ -30,8 +30,8 @@
         "type": "string",
         "group": "农场连接",
         "required": true,
-        "default": "https://farm.qqai.ren:59443",
-        "placeholder": "https://farm.qqai.ren:59443",
+        "default": "https://farm.XXX",
+        "placeholder": "https://farm.XXX",
         "description": "QQ农场智能助手（qq-farm-bot）面板的访问地址"
       },
       {
@@ -70,7 +70,7 @@
         "type": "text",
         "group": "推送设置",
         "required": false,
-        "placeholder": "如 258901523,910009183，留空表示全部在线安卓 QQ",
+        "placeholder": "如 2233333,22222，留空表示全部在线安卓 QQ",
         "description": "逗号分隔的 QQ 号列表；留空则推送全部在线账号"
       },
       {
