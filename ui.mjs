@@ -9,7 +9,7 @@ html.dark{--bg:#0f1418;--card:#161d23;--fg:#e6edf3;--muted:#93a1ae;--line:#24303
 *{box-sizing:border-box}
 body{margin:0;padding:22px;background:var(--bg);color:var(--fg);
 font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:960px;margin:0 auto;display:grid;gap:16px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:16px}
 .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .head h1{font-size:20px;margin:0;font-weight:700}
 .head .ver{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
@@ -36,19 +36,16 @@ td.err{color:var(--err);white-space:normal}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.bad{background:var(--err-bg);color:var(--err)}
 .mono{font-family:ui-monospace,Consolas,monospace}
-.pill.ok{background:var(--ok-bg);color:var(--ok)}
 .empty{color:var(--muted);font-size:13px;padding:10px 0}
-.form{display:grid;grid-template-columns:180px 1fr;gap:10px 14px;align-items:center}
+.form{display:grid;grid-template-columns:150px 1fr;gap:10px 14px;align-items:center}
 .form label{color:var(--muted);font-size:13px}
-.form input[type=text],.form input[type=password],.form input[type=number]{width:100%;padding:9px 11px;border-radius:9px;
+.form input[type=text],.form input[type=password]{width:100%;padding:9px 11px;border-radius:9px;
 border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit}
-.form .chk{display:flex;gap:16px;flex-wrap:wrap}
-.form .chk label{color:var(--fg);display:flex;gap:6px;align-items:center;font-size:13px}
-.hint{grid-column:2;color:var(--muted);font-size:12px;margin-top:-4px}
+select{padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;min-width:300px}
 .msg{margin-top:10px;font-size:13px}
 .msg.bad{color:var(--err)}
 .msg.ok{color:var(--ok)}
-@media(max-width:640px){.form{grid-template-columns:1fr}.hint{grid-column:1}}
+@media(max-width:640px){.form{grid-template-columns:1fr}select{min-width:0;width:100%}}
 `
 
 export function renderPage() {
@@ -61,7 +58,29 @@ export function renderPage() {
     <h1>QQ农场助手桥接</h1><span class="ver" id="ver"></span>
     <span class="state warn" id="conn">连接中…</span>
     <div class="spacer"></div>
-    <button class="primary" id="push">⚡ 立即推送 code 到农场</button>
+    <button class="primary" id="push">⚡ 立即推送 code 到选中服务器</button>
+  </div>
+
+  <div class="card" id="farmCard">
+    <h2>服务器管理（推送目标 = 下拉选中的那台，每台单独配置）</h2>
+    <div class="row" style="margin-bottom:14px">
+      <label for="sel" class="tip" style="font-weight:600;color:var(--fg)">推送目标</label>
+      <select id="sel"></select>
+      <button id="add">＋ 新增服务器</button>
+      <button id="del">删除该服务器</button>
+      <span class="pill" id="targetInfo">-</span>
+    </div>
+    <div class="form">
+      <label for="f-url">服务器地址</label>
+      <input id="f-url" type="text" placeholder="如 http://192.168.1.99:3007"/>
+      <label for="f-user">管理员账号</label>
+      <input id="f-user" type="text" placeholder="无账号验证可留空"/>
+      <label for="f-pass">密码 / 访问 Code</label>
+      <input id="f-pass" type="password" autocomplete="new-password" placeholder="留空 = 不修改"/>
+      <div></div>
+      <div class="row"><button class="primary" id="save">保存设置</button><span class="msg" id="saveMsg"></span></div>
+    </div>
+    <div class="tip" style="margin-top:10px">切换下拉项即刻生效（推送就发到选中的服务器）；新增/删除后要点「保存设置」。</div>
   </div>
 
   <div class="card">
@@ -75,40 +94,16 @@ export function renderPage() {
     <div id="bots"><span class="empty">读取中…</span></div>
   </div>
 
-  <div class="card" id="cfgCard">
-    <h2>运行设置</h2>
-    <div id="cfgLocked" class="tip" hidden>托管模式下请在萌卡插件卡片的「配置」里修改，保存后框架会把新配置下发给插件；本页只做展示与手动推送。</div>
-    <div class="form">
-      <label for="farm_url">农场面板地址</label>
-      <input id="farm_url" type="text" placeholder="https://farm.qqai.ren:59443"/>
-      <label for="farm_username">农场管理员</label>
-      <input id="farm_username" type="text" placeholder="admin"/>
-      <label for="farm_password">农场管理员密码</label>
-      <input id="farm_password" type="password" autocomplete="new-password" placeholder="留空表示不修改"/>
-      <div class="hint">密码只写入萌卡插件配置，不回显；修改其他项时留空即可保留原密码。</div>
-      <label for="interval_minutes">自动推送间隔</label>
-      <input id="interval_minutes" type="number" min="1" max="120" step="1"/>
-      <label for="qq_filter">仅推送指定 QQ</label>
-      <input id="qq_filter" type="text" placeholder="逗号分隔，如 123456,789012；留空=全部在线账号"/>
-      <label>推送平台</label>
-      <div class="chk">
-        <label><input type="checkbox" id="push_android"/> Android（可正常取码）</label>
-        <label><input type="checkbox" id="push_linux"/> Linux QQ（实验，取到 code 才推）</label>
-      </div>
-      <div class="hint">Linux 协议目前不支持农场取码，开启后失败的账号会在结果里单独标出。</div>
-      <div></div>
-      <div class="row"><button class="primary" id="save">保存设置</button><span class="msg" id="saveMsg"></span></div>
-    </div>
-  </div>
-
   <div class="card">
     <h2>说明</h2>
-    <div class="tip">插件每 <b id="iv">5</b> 分钟自动为在线 QQ 取新 code 并推送到农场（同名账号自动续登）；
-    点击上方「立即推送」可随时手动触发，适合刚上线一个 QQ、或想立刻刷新登录态时使用。农场面板里账号备注需与 QQ 号一致，否则会新增而不是续登。</div>
+    <div class="tip">插件每 <b id="iv">5</b> 分钟自动为在线 QQ 取新 code 并推送到<b>选中的服务器</b>（同名账号自动续登）。
+    本页的服务器列表（新增/删除/选择推送目标）是<b>唯一权威</b>，重启不会丢失。
+    萌卡插件卡片「配置」里改主服务器地址/账号/密码时，会自动合并进本页列表：地址已存在 → 更新该台的账号/密码；新地址 → 新增一台并设为推送目标。
+    访问 Code 版农场：把访问 Code 填到「密码」一栏即可。</div>
   </div>
 </div>
 <script>
-var state = { data: null, busy: false }
+var FARMS = [], ACTIVE = 0, data = null, busy = false
 function $(id) { return document.getElementById(id) }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
   return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
@@ -118,36 +113,37 @@ function api(path, opts) {
 }
 function setConn(text, cls) { var el = $('conn'); el.textContent = text; el.className = 'state ' + (cls || '') }
 
+function renderSel() {
+  var sel = $('sel'); sel.innerHTML = ''
+  if (!FARMS.length) { sel.innerHTML = '<option>（还没有服务器，请点新增）</option>'; return }
+  FARMS.forEach(function (f, i) {
+    var o = document.createElement('option'); o.value = i
+    o.textContent = (i === ACTIVE ? '★ ' : '　') + f.baseUrl + (f.passwordSet ? '' : '（未配密码/访问Code）')
+    sel.appendChild(o)
+  })
+  sel.value = ACTIVE
+}
+function fillFarm(i) {
+  var f = FARMS[i] || { baseUrl: '', username: '' }
+  $('f-url').value = f.baseUrl || ''; $('f-user').value = f.username || ''; $('f-pass').value = ''
+}
+
 function paint(d) {
-  state.data = d
+  data = d
   $('ver').textContent = 'v' + (d.version || '') + (d.platform ? ' · ' + d.platform : '')
   if (!d.connected) setConn(d.active ? '框架未连接' : '待激活', 'warn')
   else setConn(d.active ? '运行中' : '已连接', d.active ? '' : 'warn')
   var p = d.problems || []
   if (p.length) setConn(p.join(' / '), 'bad')
-  var c = d.config || {}
-  if (document.activeElement !== $('farm_url')) {
-    $('farm_url').value = c.farm_url || ''
-    $('farm_username').value = c.farm_username || ''
-    $('interval_minutes').value = c.interval_minutes || 5
-    $('qq_filter').value = c.qq_filter || ''
-    $('push_android').checked = c.push_android !== false
-    $('push_linux').checked = c.push_linux === true
-    $('farm_password').placeholder = c.password_set ? '已保存，留空则不修改' : '请输入农场管理员密码'
-  }
-  // 托管模式配置由萌卡插件卡片管理，本页只读
-  var locked = d.mode === 'managed' || d.mode === 'native'
-  $('cfgLocked').hidden = !locked
-  if (locked) {
-    var inputs = document.querySelectorAll('.form input, #save')
-    for (var i = 0; i < inputs.length; i++) inputs[i].disabled = true
-    $('saveMsg').textContent = ''
-  }
-  $('iv').textContent = c.interval_minutes || 5
-  $('push').disabled = state.busy || !d.connected || d.active === false
-  $('push').textContent = state.busy || d.busy ? '推送中…' : '⚡ 立即推送 code 到农场'
 
-  // 在线账号
+  FARMS = d.farms || []; ACTIVE = d.activeFarm || 0
+  if (ACTIVE >= FARMS.length) ACTIVE = 0
+  renderSel(); if (document.activeElement !== $('f-url')) fillFarm(ACTIVE)
+  $('targetInfo').textContent = FARMS.length ? ('共 ' + FARMS.length + ' 台 · 推送目标 ' + FARMS[ACTIVE].baseUrl) : '未配置服务器'
+  $('iv').textContent = (d.config || {}).interval_minutes || 5
+  $('push').disabled = busy || !d.connected || d.active === false || !FARMS.length
+  $('push').textContent = busy || d.busy ? '推送中…' : '⚡ 立即推送 code 到选中服务器'
+
   var bots = d.bots || []
   if (!bots.length) $('bots').innerHTML = '<span class="empty">框架里还没有可读取的账号</span>'
   else {
@@ -165,53 +161,58 @@ function paint(d) {
   var head = r.empty ? '<span class="state warn">' + esc(r.message) + '</span>'
     : r.error ? '<span class="state bad">' + esc(r.error) + '</span>'
     : '<span class="state">' + (r.success || 0) + '/' + (r.total || 0) + ' 成功</span>'
-  $('summary').innerHTML = head + '<span class="tip">触发：' + esc(r.reason || '') + ' · ' + when +
+  $('summary').innerHTML = head + '<span class="tip">目标：' + esc(r.farmUrl || '-') + ' · 触发：' + esc(r.reason || '') + ' · ' + when +
     (r.ms ? ' · 用时 ' + r.ms + ' ms' : '') + '</span>'
   if (!r.items || !r.items.length) { $('items').innerHTML = ''; return }
   var rows = r.items.map(function (i) {
     return '<tr><td class="mono">' + esc(i.selfId) + '</td><td>' + esc(i.nickname || '-') + '</td><td>' +
       (i.clientType === 'linuxqq' ? 'Linux' : 'Android') + '</td><td><span class="pill ' + (i.ok ? 'ok' : 'bad') + '">' +
-      (i.ok ? '成功' : '失败') + '</span></td><td>' + (i.ms || 0) + ' ms</td><td class="err">' + esc(cnError(i.error)) + '</td></tr>'
+      (i.ok ? '成功' : '失败') + '</span></td><td>' + (i.ms || 0) + ' ms</td><td class="err">' + esc(i.error || '') + '</td></tr>'
   }).join('')
-  $('items').innerHTML = '<table><thead><tr><th>QQ</th><th>昵称</th><th>平台</th><th>结果</th><th>耗时</th><th>说明</th></tr></thead><tbody>' +
-    rows + '</tbody></table>'
-}
-
-function cnError(e) {
-  if (!e) return ''
-  var s = String(e)
-  if (/not.*support|unsupported|不支持/i.test(s)) return s + '（Linux 协议无法取农场 code，属正常）'
-  if (/not online|离线|offline/i.test(s)) return s + '（账号已下线）'
-  return s
+  $('items').innerHTML = '<table><thead><tr><th>QQ</th><th>昵称</th><th>平台</th><th>结果</th><th>耗时</th><th>说明</th></tr></thead><tbody>' + rows + '</tbody></table>'
 }
 
 function reload() { return api('/api/state').then(paint).catch(function (e) { setConn(e.message, 'bad') }) }
 
-$('push').onclick = function () {
-  state.busy = true; paint(state.data || { config: {}, last: null })
-  api('/api/push', { method: 'POST', body: '{}' })
-    .then(function (j) { state.busy = false; paint(Object.assign({}, state.data, { last: j.last })); reload() })
-    .catch(function (e) { state.busy = false; reload(); $('summary').innerHTML = '<span class="state bad">' + esc(e.message) + '</span>' })
+$('sel').onchange = function () {
+  var i = parseInt(this.value, 10) || 0
+  var body = { activeFarm: i, farms: FARMS.map(function (f) { return { baseUrl: f.baseUrl, username: f.username } }) }
+  api('/api/farms', { method: 'POST', body: JSON.stringify(body) })
+    .then(function (j) { ACTIVE = j.activeFarm; paint(j); $('saveMsg').className = 'msg ok'; $('saveMsg').textContent = '推送目标已切换' })
+    .catch(function (e) { $('saveMsg').className = 'msg bad'; $('saveMsg').textContent = '切换失败：' + e.message })
 }
-
+$('add').onclick = function () {
+  FARMS.push({ baseUrl: 'http://', username: '', passwordSet: false })
+  ACTIVE = FARMS.length - 1; renderSel(); fillFarm(ACTIVE)
+  $('saveMsg').className = 'msg'; $('saveMsg').textContent = '已新增条目：填好地址与密码后点「保存设置」'
+}
+$('del').onclick = function () {
+  if (FARMS.length <= 1) { alert('至少要保留 1 台服务器'); return }
+  var f = FARMS[ACTIVE]
+  if (!confirm('确定删除服务器 ' + f.baseUrl + ' ？（点保存后生效）')) return
+  FARMS.splice(ACTIVE, 1); ACTIVE = 0; renderSel(); fillFarm(ACTIVE)
+  $('saveMsg').className = 'msg'; $('saveMsg').textContent = '已删除 ' + f.baseUrl + '，点「保存设置」生效'
+}
 $('save').onclick = function () {
-  var body = {
-    farm_url: $('farm_url').value.trim(),
-    farm_username: $('farm_username').value.trim(),
-    interval_minutes: Number($('interval_minutes').value) || 5,
-    qq_filter: $('qq_filter').value.trim(),
-    push_android: $('push_android').checked,
-    push_linux: $('push_linux').checked
-  }
-  if ($('farm_password').value) body.farm_password = $('farm_password').value
-  var msg = $('saveMsg'); msg.className = 'msg'; msg.textContent = '保存中…'
-  api('/api/config', { method: 'POST', body: JSON.stringify(body) })
-    .then(function (j) { msg.className = 'msg ok'; msg.textContent = '已保存并生效'; $('farm_password').value = ''; paint(j) })
-    .catch(function (e) { msg.className = 'msg bad'; msg.textContent = '保存失败：' + e.message })
+  var farms = FARMS.map(function (f, i) {
+    var it = { baseUrl: (i === ACTIVE ? $('f-url').value.trim() : f.baseUrl), username: (i === ACTIVE ? $('f-user').value.trim() : f.username) }
+    if (i === ACTIVE) { var pw = $('f-pass').value; if (pw) it.password = pw }
+    return it
+  })
+  $('saveMsg').className = 'msg'; $('saveMsg').textContent = '保存中…'
+  api('/api/farms', { method: 'POST', body: JSON.stringify({ farms: farms, activeFarm: ACTIVE }) })
+    .then(function (j) { $('f-pass').value = ''; paint(j); $('saveMsg').className = 'msg ok'; $('saveMsg').textContent = '已保存并生效' })
+    .catch(function (e) { $('saveMsg').className = 'msg bad'; $('saveMsg').textContent = '保存失败：' + e.message })
+}
+$('push').onclick = function () {
+  busy = true; paint(data || { farms: FARMS, last: null })
+  api('/api/push', { method: 'POST', body: '{}' })
+    .then(function (j) { busy = false; paint(Object.assign({}, data, { last: j.last })); reload() })
+    .catch(function (e) { busy = false; reload(); $('summary').innerHTML = '<span class="state bad">' + esc(e.message) + '</span>' })
 }
 
 reload()
-setInterval(function () { if (!state.busy) reload() }, 5000)
+setInterval(function () { if (!busy) reload() }, 5000)
 </script>
 </body></html>`
 }

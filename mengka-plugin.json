@@ -2,11 +2,11 @@
   "schema": 3,
   "plugin_id": "qq-farm-bridge",
   "name": "QQ农场助手桥接",
-  "version": "1.2.0",
-  "min_framework": "2.4.1",
+  "version": "1.6.2",
+  "min_framework": "2.5.3",
   "author": "WorkBuddy",
-  "description": "把萌卡在线 QQ 的农场登录 code 定时推送到 QQ农场智能助手（qq-farm-bot），并可在插件管理页一键手动推送。",
-  "notes": "v1.2.0：修复在线账号筛选（二次归一化导致 0 目标）；管理端初始化兼容 native-ipc 连接文件；包含 v1.1.0 全部功能——插件管理页「⚡ 立即推送 code 到农场」、在线 QQ 列表、推送明细、Android/Linux 推送开关；Windows 与 Linux 版萌卡均可安装。",
+  "description": "把萌卡在线 QQ 的农场登录 code 自动/手动推送到 QQ农场智能助手（qq-farm-bot）。支持多台农场服务器（管理页可新增/删除/选择推送目标），自动适配「访问 Code」/账号密码/无验证三种农场后台。",
+  "notes": "【Linux x86_64 构建】入口 bin/node-linux-amd64，自带 Node 运行时，不依赖系统 Node.js。v1.6.2：修复插件「配置」与管理后台两处服务器配置互不相通的问题 —— 服务器列表（新增/删除/选择推送目标）以插件管理后台为唯一权威，重启/改配置后不再被旧值覆盖；在萌卡「配置」里改主服务器地址/账号/密码会自动合并进列表（地址已存在→更新该台，新地址→新增一台并设为推送目标）；v1.6.1：新增 Windows x64 构建（内置 bin/node-win-x64.exe，Windows 版萌卡可直接导入，功能与 Linux 构建完全一致）；v1.6.0：多农场服务器管理 —— 插件管理页可新增/删除服务器并下拉选择推送目标（推送只发到选中的那台，每台单独配地址/账号/密码或访问Code，配置持久化）；自动适配访问 Code 版（/api/auth/status + /api/login{code} 换 Cookie）/账号密码版/无验证版，401 自动重登；取码与推送明细、在线 QQ 列表保持原样；自带 node 运行时，不依赖系统 Node.js。",
   "runtime": {
     "entry": "bin/node-linux-amd64",
     "args": [
@@ -26,31 +26,31 @@
     "fields": [
       {
         "key": "farm_url",
-        "label": "农场面板地址",
+        "label": "主服务器地址",
         "type": "string",
         "group": "农场连接",
         "required": true,
-        "default": "https://farm.XXX",
-        "placeholder": "https://farm.XXX",
-        "description": "QQ农场智能助手（qq-farm-bot）面板的访问地址"
+        "default": "http://127.0.0.1:3007",
+        "placeholder": "http://192.168.1.199:3007",
+        "description": "主服务器地址；在这里改动会自动合并到插件管理页的服务器列表（地址已存在→更新该台账号/密码；新地址→新增一台并设为推送目标）。列表的增删/选择请用插件管理后台"
       },
       {
         "key": "farm_username",
-        "label": "农场管理员用户名",
+        "label": "管理员用户名",
         "type": "string",
         "group": "农场连接",
-        "required": true,
+        "required": false,
         "default": "admin",
-        "description": "农场面板管理员账号"
+        "description": "账号密码版农场填管理员账号；「访问 Code」版可留空"
       },
       {
         "key": "farm_password",
-        "label": "农场管理员密码",
+        "label": "密码 / 访问 Code",
         "type": "string",
         "group": "农场连接",
         "required": true,
         "secret": true,
-        "description": "农场面板管理员密码，只写入框架加密配置，不在接口中回显"
+        "description": "账号密码版填管理员密码；「访问 Code」版直接填访问 Code。只写入框架加密配置，不回显"
       },
       {
         "key": "interval_minutes",
@@ -62,7 +62,7 @@
         "min": 1,
         "max": 120,
         "step": 1,
-        "description": "每隔多少分钟为在线 QQ 重新取码并推送一次"
+        "description": "每隔多少分钟为在线 QQ 重新取码并推送到选中服务器"
       },
       {
         "key": "qq_filter",
@@ -70,7 +70,7 @@
         "type": "text",
         "group": "推送设置",
         "required": false,
-        "placeholder": "如 2233333,22222，留空表示全部在线安卓 QQ",
+        "placeholder": "如 258901523,910009183，留空表示全部在线安卓 QQ",
         "description": "逗号分隔的 QQ 号列表；留空则推送全部在线账号"
       },
       {
