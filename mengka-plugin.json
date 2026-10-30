@@ -1,0 +1,20 @@
+{
+  "schema": 3,
+  "framework_api": "3.0.0",
+  "plugin_id": "qq-farm-bridge",
+  "name": "QQ农场助手桥接",
+  "version": "1.3.1",
+  "min_framework": "3.0.0",
+  "author": "coolxy (ng rewrite base: Carlor-Official)",
+  "description": "把萌卡在线 QQ 的农场登录 code 推送到 QQ农场智能助手（qq-farm-bot）。支持多台农场服务器、状态感知推送（已在线跳过、临期才刷新、同一账号原地更新）、定时 + bot_online 事件双触发、管理端健康闸门。",
+  "notes": "萌卡NT 3.0 适配：取码走 get_qq_classic_farm_code(self_id+protocol_id)；管理端实现 /api/managed/health+control 启动闸门（卡片出现「管理插件」入口）；凭据 AES-256-GCM 加密存放，自动迁移旧版明文 servers.json/config.json。仓库 https://github.com/coolxy/mengkaNT-qq-farm-bridge",
+  "runtime": {
+    "entry": "bin/node-linux-amd64",
+    "args": ["main.mjs"],
+    "transport": "native-ipc-v1",
+    "api_version": "1",
+    "admin": true,
+    "actions": ["get_bot_list", "get_qq_classic_farm_code"],
+    "events": ["bot_online", "bot_offline"]
+  }
+}
