@@ -11,6 +11,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { createIpc } from './lib/ipc.mjs'
 import { createStore, resolveDataDir, normalizeOptions, normalizeServers, DEFAULT_OPTIONS } from './lib/store.mjs'
 import { createPusher } from './lib/push.mjs'
+import { makeSandboxFetch, sandboxDiagnostics } from './lib/sandbox-fetch.mjs'
 
 const PLUGIN_DIR = dirname(fileURLToPath(import.meta.url))
 const MANIFEST = JSON.parse(readFileSync(join(PLUGIN_DIR, 'mengka-plugin.json'), 'utf8'))
@@ -78,7 +79,8 @@ const ipc = createIpc({
   onLifecycle: m => { if (m?.event) logger.info('生命周期：' + m.event) },
 })
 
-const pusher = createPusher({ ipc, store, logger, getOptions, getServers, log })
+const sandboxFetch = makeSandboxFetch({ logger })
+const pusher = createPusher({ ipc, store, logger, getOptions, getServers, log, fetchImpl: sandboxFetch })
 
 // ---------- 定时器 ----------
 let timer = null
@@ -245,7 +247,7 @@ async function handler(req, res, secure = true) {
     try {
       const body = JSON.parse((await readBody()) || '{}')
       const { createFarmClient, newSession } = await import('./lib/farm.mjs')
-      const c = createFarmClient({ logger })
+      const c = createFarmClient({ logger, fetchImpl: sandboxFetch })
       const farm = { baseUrl: String(body.baseUrl || ''), username: String(body.username || ''), password: String(body.password || '') }
       if (!farm.baseUrl) return json(400, { ok: false, error: '缺少 baseUrl' })
       const s = newSession()
@@ -261,7 +263,7 @@ async function handler(req, res, secure = true) {
   // 全部服务器连通性测试（管理页用）
   if (path === '/api/test' && req.method === 'POST') {
     const { createFarmClient, newSession } = await import('./lib/farm.mjs')
-    const c = createFarmClient({ logger })
+    const c = createFarmClient({ logger, fetchImpl: sandboxFetch })
     const out = []
     for (const f of getServers().farms) {
       const s = newSession()
@@ -278,6 +280,7 @@ async function handler(req, res, secure = true) {
 
 // ---------- 启动 ----------
 logger.info('等待框架 IPC 就绪…')
+sandboxDiagnostics(logger)
 await ipc.start()
 logger.info('插件已就绪 v' + VERSION + '，服务器 ' + getServers().farms.length + ' 台')
 reschedule()
