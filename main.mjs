@@ -140,6 +140,7 @@ async function statePayload() {
     farms: servers.farms.map((f, i) => ({ index: i, label: f.label, baseUrl: f.baseUrl, username: f.username, passwordSet: !!f.password, active: i === servers.activeFarm })),
     activeFarm: servers.activeFarm,
     bots,
+    qqFlags: pusher.qqFlags(),
     last: compatLast(pusher.lastResult),
     lastRaw: pusher.lastResult,
     logs: logRing.slice(-80),
@@ -151,10 +152,13 @@ function compatLast(r) {
   if (!r) return null
   const items = (r.items || []).map(i => ({
     selfId: i.selfId, nickname: i.nickname, platform: i.platform,
+    level: i.level || 0,
+    farmState: i.farmState || '',
+    action: i.action || '',
     ok: i.action === 'update' || i.action === 'create',
     skipped: i.action === 'skip',
     detail: i.detail || '',
-    error: i.error || (i.action === 'skip' ? i.detail : ''),
+    error: i.error || '',
     ms: i.ms || 0,
   }))
   return {
@@ -238,8 +242,24 @@ async function handler(req, res, secure = true) {
 
   if (path === '/api/push' && req.method === 'POST') {
     if (!ipc.ready) return json(503, { error: '框架 IPC 未就绪' })
-    const r = await pusher.push('手动')
+    let body = {}
+    try { body = JSON.parse((await readBody()) || '{}') } catch {}
+    const selfId = body.selfId != null && String(body.selfId).trim() ? String(body.selfId).trim() : null
+    // 单号推送：显式意图 → 强制取码（忽略「已在线跳过」与「code 未变化」），否则点了按钮却什么都没发生
+    if (selfId && pusher.busy) return json(409, { error: '正在推送中，请稍候再试' })
+    const r = await pusher.push(selfId ? '手动推送 ' + selfId : '手动', selfId ? { selfId, force: body.force !== false } : {})
     return json(200, { last: compatLast(r), lastRaw: r })
+  }
+
+  // 单个 QQ 的推送开关（管理页复选框）
+  if (path === '/api/qq/enable' && req.method === 'POST') {
+    try {
+      const body = JSON.parse((await readBody()) || '{}')
+      const selfId = String(body.selfId ?? '').trim()
+      if (!/^\d{5,12}$/.test(selfId)) return json(400, { error: 'selfId 不合法' })
+      pusher.setQqEnabled(selfId, body.enabled !== false)
+      return json(200, await statePayload())
+    } catch (e) { return json(400, { error: String(e?.message || e) }) }
   }
 
   // 单台测试连接（注入脚本「测试连接」用）

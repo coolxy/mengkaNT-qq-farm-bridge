@@ -2,39 +2,90 @@
 <html lang="zh-CN"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>QQ农场助手桥接</title>
+<script>
+  // 主题：优先本地记忆，其次跟随系统（避免首屏闪烁）
+  (function () {
+    try {
+      var t = localStorage.getItem('qf-theme')
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+      }
+      // URL 参数 ?theme=light|dark 最高优先（方便外链/卡片内直接指定）
+      var p = new URLSearchParams(location.search).get('theme')
+      if (p === 'light' || p === 'dark') { t = p; localStorage.setItem('qf-theme', p) }
+      document.documentElement.setAttribute('data-theme', t)
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'dark') }
+  })()
+</script>
 <style>
-:root{--bg:#0d1117;--card:#161b22;--line:#252d38;--fg:#e6edf3;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#2f81f7}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"Segoe UI",system-ui,"Microsoft YaHei",sans-serif}
+:root{
+  --bg:#0d1117;--card:#161b22;--line:#252d38;--fg:#e6edf3;--dim:#8b949e;
+  --ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#2f81f7;
+  --input-bg:#0b0f14;--btn-bg:#21262d;--btn-hover:#2b323b;--farm-bg:#0f141b;--code-bg:#0b0f14;
+  --ok-line:#1f4d2a;--bad-line:#5a2320;--warn-line:#4d3a12;--hover-line:#8b949e;
+}
+:root[data-theme=light]{
+  --bg:#f4f6fa;--card:#ffffff;--line:#dde3ec;--fg:#1c2430;--dim:#647084;
+  --ok:#1a7f37;--bad:#cf222e;--warn:#9a6700;--acc:#0969da;
+  --input-bg:#ffffff;--btn-bg:#f1f4f9;--btn-hover:#e5eaf2;--farm-bg:#fafbfd;--code-bg:#f6f8fa;
+  --ok-line:#a7d4b2;--bad-line:#f0b0ab;--warn-line:#e6cf9a;--hover-line:#b6bfcc;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"Segoe UI",system-ui,"Microsoft YaHei",sans-serif;transition:background .18s,color .18s}
 .wrap{max-width:1060px;margin:0 auto;padding:18px}
 .head{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px}
 .head h1{font-size:17px;margin:0;font-weight:600}
 .ver{color:var(--dim);font-size:12px}
 .state{margin-left:auto;font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
-.state.ok{color:var(--ok);border-color:#1f4d2a}.state.bad{color:var(--bad);border-color:#5a2320}
+.state.ok{color:var(--ok);border-color:var(--ok-line)}.state.bad{color:var(--bad);border-color:var(--bad-line)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
 .card h2{font-size:13px;margin:0 0 10px;color:var(--dim);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.cardhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cardhead h2{margin:0}
+.cardhead .msg{margin-left:auto}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
-input,select{background:#0b0f14;border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px;min-width:0}
-input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc)}
-button{background:#21262d;border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
-button:hover{background:#2b323b}button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
-button.primary:hover{filter:brightness(1.1)}button.danger{color:var(--bad);border-color:#5a2320}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+input,select{background:var(--input-bg);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px;min-width:0}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
+input[type=checkbox]:disabled{cursor:progress;opacity:.5}
+button{background:var(--btn-bg);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{background:var(--btn-hover)}button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button.primary:hover{filter:brightness(1.08)}button.danger{color:var(--bad);border-color:var(--bad-line)}
+button.mini{padding:3px 10px;font-size:12px;border-radius:6px}
+button.mini:disabled{color:var(--dim);cursor:not-allowed;opacity:.6}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:9px}
+.iconbtn svg{width:18px;height:18px;display:block}
+:root[data-theme=dark] .ico-moon{display:none}
+:root[data-theme=light] .ico-sun{display:none}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 th{color:var(--dim);font-weight:500;font-size:12px}
+tbody tr:hover{background:var(--farm-bg)}
 .mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
-.pill{padding:1px 8px;border-radius:99px;font-size:11px;border:1px solid var(--line)}
-.pill.ok{color:var(--ok);border-color:#1f4d2a}.pill.bad{color:var(--bad);border-color:#5a2320}.pill.warn{color:var(--warn);border-color:#4d3a12}.pill.dim{color:var(--dim)}
+.pill{padding:1px 8px;border-radius:99px;font-size:11px;border:1px solid var(--line);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:var(--ok-line)}.pill.bad{color:var(--bad);border-color:var(--bad-line)}
+.pill.warn{color:var(--warn);border-color:var(--warn-line)}.pill.dim{color:var(--dim)}
 .msg{font-size:12px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
-pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:220px;overflow:auto;font-size:12px;color:var(--dim);margin:0}
-.farm{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:#0f141b}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:220px;overflow:auto;font-size:12px;color:var(--dim);margin:0}
+.farm{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--farm-bg)}
 .farm.active{border-color:var(--acc)}
 .spacer{flex:1}
+.sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+.sw span{font-size:12px;color:var(--dim)}
 </style></head>
 <body><div class="wrap">
   <div class="head">
     <h1>QQ农场助手桥接</h1><span class="ver" id="ver">v-</span><a id="repo" href="https://github.com/coolxy/mengkaNT-qq-farm-bridge" target="_blank" rel="noopener" style="color:var(--acc);font-size:12px">GitHub 仓库</a><span class="ver">· 插件管理页（本页）</span>
     <div class="spacer"></div>
+    <button class="iconbtn" id="theme" type="button" title="切换白天/夜间" aria-label="切换白天/夜间">
+      <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/>
+        <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+      </svg>
+      <svg class="ico-moon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.7 8.7 0 1 0 11.1 11.1z"/>
+      </svg>
+    </button>
     <span class="state" id="conn">连接中…</span>
   </div>
 
@@ -54,7 +105,7 @@ pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10
     <div class="row">
       <label class="f">间隔（分钟）<input id="interval" type="number" min="1" max="240" style="width:90px"/></label>
       <label class="f">临期提前刷新（分钟，0=关）<input id="refresh" type="number" min="0" max="120" style="width:90px"/></label>
-      <label class="f">仅推这些 QQ（逗号分隔，空=全部）<input id="filter" style="width:240px" placeholder="258901523,910009183"/></label>
+      <label class="f">仅推这些 QQ（逗号分隔，空=全部）<input id="filter" style="width:240px" placeholder="100000，888888"/></label>
     </div>
     <div class="row">
       <label class="f"><span><input type="checkbox" id="skipOnline"/> 已在线跳过</span></label>
@@ -72,13 +123,12 @@ pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10
   </div>
 
   <div class="card">
-    <h2>账号状态（萌卡在线 QQ ↔ 农场侧）</h2>
-    <div id="bots"><span class="msg">读取中…</span></div>
-  </div>
-
-  <div class="card">
-    <h2>最近一次推送</h2>
-    <div id="last"><span class="msg">还没有记录</span></div>
+    <div class="cardhead">
+      <h2>QQ 账号状态 · 最近一次推送</h2>
+      <span class="msg" id="botMsg"></span>
+    </div>
+    <div class="row" id="lastMeta" style="margin:-2px 0 8px"></div>
+    <div id="qqtable"><span class="msg">读取中…</span></div>
   </div>
 
   <div class="card">
@@ -93,7 +143,7 @@ function $(id) { return document.getElementById(id) }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
 function api(path, opts) {
   return fetch(apiUrl(path), Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opts || {}))
-    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j }) })
+    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)) ; return j }) })
 }
 function setConn(t, cls) { var e = $('conn'); e.textContent = t; e.className = 'state ' + (cls || '') }
 function farmStatePill(s) {
@@ -107,8 +157,8 @@ function actionPill(a) {
   return '<span class="pill ' + m[0] + '">' + esc(m[1]) + '</span>'
 }
 
-var FARMS = [], ACTIVE = 0, OPT = {}
-var DIRTY = false
+var FARMS = [], ACTIVE = 0, OPT = {}, BOTMAP = {}
+var DIRTY = false, PUSHING = {}
 // 正在编辑（焦点在输入框）或改过未保存时，暂停对表单区域的重绘，避免输入被轮询打断
 function editBlocked() {
   var ae = document.activeElement
@@ -118,6 +168,7 @@ function editBlocked() {
   }
   return DIRTY
 }
+function qqEnabled(id) { return BOTMAP[id] !== false }
 function renderFarms() {
   var h = ''
   for (var i = 0; i < FARMS.length; i++) {
@@ -153,24 +204,160 @@ function paintOptions(o) {
   $('pushLinux').checked = o.pushLinux
 }
 
-function paintBots(bots) {
-  if (!bots || !bots.length) { $('bots').innerHTML = '<span class="msg">没有在线 QQ（或读取失败）</span>'; return }
-  var rows = bots.map(function (b) {
-    return '<tr><td class="mono">' + esc(b.selfId) + '</td><td>' + esc(b.nickname || '-') + '</td><td>' + esc(b.platform) + '</td>'
-      + '<td>' + (b.level || '-') + '</td><td>' + farmStatePill(b.farmState) + '</td><td class="mono">' + (b.expiresAt ? new Date(b.expiresAt).toLocaleTimeString('zh-CN', { hour12: false }) : '-') + '</td>'
-      + '<td>' + esc(b.farmDetail || '') + '</td></tr>'
-  }).join('')
-  $('bots').innerHTML = '<table><thead><tr><th>QQ</th><th>昵称</th><th>平台</th><th>等级</th><th>农场状态</th><th>code 过期</th><th>说明</th></tr></thead><tbody>' + rows + '</tbody></table>'
+// ---- 合并表：账号状态 + 最近一次推送 ----
+// 行顺序固定为 QQ 号升序（长度优先再字典序 = 数值升序）；刷新时只改单元格内容，不重建行，避免顺序跳动与闪烁
+var TH = ['QQ', '自动推送', '昵称', '平台', '等级', '农场状态', 'code 过期', '最近动作', '说明', '操作']
+var KEYS = ['qq', 'on', 'nick', 'plat', 'level', 'state', 'exp', 'act', 'note', 'op']
+var TH_TIP = {
+  1: '勾选=参与定时/事件自动推送；不勾选=跳过自动推送，但仍可用行尾「推送」按钮手动推',
+  9: '立即推送该号 code，强制取码，不受自动推送开关限制'
+}
+var BOTS = [], LAST = null, QQ_ROWS = {}, QQ_SEQ = null
+
+function cmpId(a, b) { return (a.length - b.length) || (a < b ? -1 : a > b ? 1 : 0) }
+function timeShort(t) { try { return new Date(t).toLocaleTimeString('zh-CN', { hour12: false }) } catch (e) { return '-' } }
+
+function aggregateQQ(bots, last) {
+  var map = {}, out = []
+  ;(bots || []).forEach(function (b) {
+    if (!b || b.selfId == null) return
+    var id = String(b.selfId)
+    if (!map[id]) { map[id] = { id: id, online: true }; out.push(map[id]) }
+    map[id].bot = b
+  })
+  ;((last && last.items) || []).forEach(function (i) {
+    if (!i || i.selfId == null) return
+    var id = String(i.selfId)
+    if (!map[id]) { map[id] = { id: id, online: false }; out.push(map[id]) }
+    map[id].last = i
+  })
+  return out.sort(function (a, b) { return cmpId(a.id, b.id) })
 }
 
-function paintLast(last) {
-  if (!last) { $('last').innerHTML = '<span class="msg">还没有记录</span>'; return }
-  var head = '<div class="row"><span class="msg">' + esc(last.reason) + ' · ' + new Date(last.at).toLocaleString('zh-CN', { hour12: false }) + ' · ' + esc(last.farmUrl || '') + '</span></div>'
-  if (last.error) { $('last').innerHTML = head + '<div class="msg bad">' + esc(last.error) + '</div>'; return }
-  var rows = (last.items || []).map(function (i) {
-    return '<tr><td class="mono">' + esc(i.selfId) + '</td><td>' + esc(i.nickname || '-') + '</td><td>' + (i.level || '-') + '</td><td>' + farmStatePill(i.farmState) + '</td><td>' + actionPill(i.action) + '</td><td>' + esc(i.detail || '') + '</td><td class="msg bad">' + esc(i.error || '') + '</td><td>' + (i.ms || 0) + ' ms</td></tr>'
-  }).join('')
-  $('last').innerHTML = head + '<table><thead><tr><th>QQ</th><th>昵称</th><th>等级</th><th>农场状态</th><th>动作</th><th>说明</th><th>错误</th><th>耗时</th></tr></thead><tbody>' + rows + '</tbody></table>'
+function qqCells(d) {
+  var b = d.bot || {}, L = d.last || {}, id = d.id
+  var on = BOTMAP[id] !== false, busy = !!PUSHING[id]
+  var level = b.level || L.level || ''
+  var note = b.farmDetail || L.detail || ''
+  var err = L.error && L.error !== note ? L.error : ''
+  var noteHtml = esc(note) || ''
+  if (err) noteHtml += (noteHtml ? ' ' : '') + '<span class="msg bad">' + esc(err) + '</span>'
+  return {
+    qq: '<span class="mono">' + esc(id) + '</span>' + (d.online ? '' : ' <span class="pill dim">不在线</span>'),
+    on: '<label class="sw"><input type="checkbox" data-qq="' + esc(id) + '"' + (on ? ' checked' : '') + '/><span>' + (on ? '自动' : '仅手动') + '</span></label>',
+    nick: esc(b.nickname || L.nickname || '-'),
+    plat: esc(b.platform || '-'),
+    level: String(level || '-'),
+    state: farmStatePill(b.farmState || L.farmState),
+    exp: '<span class="mono">' + (b.expiresAt ? timeShort(b.expiresAt) : '-') + '</span>',
+    act: L.action ? actionPill(L.action) : '<span class="pill dim">-</span>',
+    note: noteHtml || '-',
+    op: '<button class="mini" data-push1="' + esc(id) + '"' + (busy ? ' disabled' : '')
+      + ' title="立即推送该 QQ 的 code（强制取码，忽略在线跳过；不受自动推送开关限制）">'
+      + (busy ? '推送中…' : '推送') + '</button>'
+  }
+}
+
+function paintLastMeta(last) {
+  var el = $('lastMeta'), h
+  if (!last) h = '<span class="msg">还没有推送记录</span>'
+  else {
+    h = '<span class="msg">最近一次：' + esc(last.reason || '-') + ' · ' + new Date(last.at).toLocaleString('zh-CN', { hour12: false })
+      + (last.farmUrl ? ' · ' + esc(last.farmUrl) : '') + (last.empty ? ' · 无匹配号' : '') + '</span>'
+    if (last.error) h += ' <span class="msg bad">' + esc(last.error) + '</span>'
+  }
+  if (el.__h !== h) { el.innerHTML = h; el.__h = h }
+}
+
+function paintQQ(bots, last) {
+  BOTS = bots || []; LAST = last || null
+  BOTMAP = {}
+  BOTS.forEach(function (b) { if (b && b.selfId != null) BOTMAP[String(b.selfId)] = b.pushEnabled !== false })
+  paintLastMeta(LAST)
+  var list = aggregateQQ(BOTS, LAST)
+  var box = $('qqtable')
+  if (!list.length) {
+    QQ_SEQ = null; QQ_ROWS = {}
+    if (!box.querySelector('.msg')) box.innerHTML = '<span class="msg">没有在线 QQ（或读取失败）</span>'
+    return
+  }
+  var seq = list.map(function (d) { return d.id }).join(',')
+  if (seq !== QQ_SEQ) {
+    QQ_SEQ = seq; QQ_ROWS = {}
+    var h = '<table><thead><tr>'
+    for (var i = 0; i < TH.length; i++) {
+      h += '<th' + (TH_TIP[i] ? ' title="' + esc(TH_TIP[i]) + '"' : '') + '>' + TH[i] + '</th>'
+    }
+    h += '</tr></thead><tbody>'
+    for (var r = 0; r < list.length; r++) {
+      h += '<tr data-id="' + esc(list[r].id) + '">'
+      for (var c = 0; c < TH.length; c++) h += '<td></td>'
+      h += '</tr>'
+    }
+    box.innerHTML = h + '</tbody></table>'
+    Array.prototype.forEach.call(box.querySelectorAll('tbody tr'), function (tr) { QQ_ROWS[tr.dataset.id] = tr })
+    bindQqToggles(); bindRowPush()
+  }
+  for (var n = 0; n < list.length; n++) {
+    var tr = QQ_ROWS[list[n].id]; if (!tr) continue
+    var v = qqCells(list[n])
+    for (var k = 0; k < KEYS.length; k++) {
+      var td = tr.children[k]; if (!td) continue
+      var html = v[KEYS[k]]
+      if (td.__h !== html) { td.innerHTML = html; td.__h = html }
+    }
+  }
+}
+
+function bindQqToggles() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-qq]'), function (el) {
+    el.onchange = function () {
+      var id = el.dataset.qq, on = el.checked
+      el.disabled = true
+      $('botMsg').className = 'msg'
+      $('botMsg').textContent = '保存 ' + id + ' …'
+      api('/api/qq/enable', { method: 'POST', body: JSON.stringify({ selfId: id, enabled: on }) })
+        .then(function (s) {
+          BOTMAP[id] = on
+          $('botMsg').className = 'msg ok'
+          $('botMsg').textContent = id + (on ? ' 已开启自动推送' : ' 已关闭自动推送（仅保留手动推送）')
+          paint(s)
+        })
+        .catch(function (e) {
+          el.checked = !on; el.disabled = false
+          $('botMsg').className = 'msg bad'
+          $('botMsg').textContent = '保存失败：' + e.message
+        })
+    }
+  })
+}
+
+function bindRowPush() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-push1]'), function (el) {
+    el.onclick = function () { pushOne(el.dataset.push1) }
+  })
+}
+
+function pushOne(id) {
+  PUSHING[id] = true
+  $('botMsg').className = 'msg'
+  $('botMsg').textContent = '正在推送 ' + id + ' 的 code …'
+  paintQQ(BOTS, LAST)
+  api('/api/push', { method: 'POST', body: JSON.stringify({ selfId: id, force: true }) })
+    .then(function (r) {
+      var it = (r.lastRaw && r.lastRaw.items && r.lastRaw.items[0]) || null
+      var ok = it && (it.action === 'update' || it.action === 'create')
+      $('botMsg').className = 'msg ' + (ok ? 'ok' : 'bad')
+      $('botMsg').textContent = ok
+        ? (id + ' 推送成功：' + (it.detail || ''))
+        : (id + ' 未推送：' + ((it && (it.error || it.detail)) || (r.last && r.last.error) || '未知原因'))
+      return reload()
+    })
+    .catch(function (e) {
+      $('botMsg').className = 'msg bad'
+      $('botMsg').textContent = '推送失败：' + e.message
+    })
+    .then(function () { delete PUSHING[id]; paintQQ(BOTS, LAST) })
 }
 
 function paint(s) {
@@ -181,11 +368,24 @@ function paint(s) {
     ACTIVE = s.activeFarm || 0
     renderFarms(); paintOptions(s.options)
   }
-  paintBots(s.bots); paintLast(s.last)
+  paintQQ(s.bots, s.last || null)
   $('logs').textContent = (s.logs || []).join('\n')
 }
 
 function reload() { return api('/api/state').then(paint).catch(function (e) { setConn('读取失败：' + e.message, 'bad') }) }
+
+// ---- 白天 / 夜间切换 ----
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t)
+  try { localStorage.setItem('qf-theme', t) } catch (e) {}
+  var b = $('theme')
+  var t2 = t === 'light' ? '切换到夜间模式' : '切换到白天模式'
+  if (b) { b.title = t2; b.setAttribute('aria-label', t2) }
+}
+$('theme').onclick = function () {
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light')
+}
+applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark')
 
 $('add').onclick = function () { FARMS.push({ baseUrl: 'http://', username: 'admin', password: '' }); ACTIVE = FARMS.length - 1; renderFarms() }
 $('save').onclick = function () {
@@ -213,7 +413,7 @@ $('saveOpts').onclick = function () {
 $('push').onclick = function () {
   $('optMsg').className = 'msg'; $('optMsg').textContent = '推送中…'
   api('/api/push', { method: 'POST', body: '{}' })
-    .then(function (r) { paintLast(r.last); $('optMsg').className = 'msg ok'; $('optMsg').textContent = '完成'; return reload() })
+    .then(function () { $('optMsg').className = 'msg ok'; $('optMsg').textContent = '完成'; return reload() })
     .catch(function (e) { $('optMsg').className = 'msg bad'; $('optMsg').textContent = '推送失败：' + e.message })
 }
 
