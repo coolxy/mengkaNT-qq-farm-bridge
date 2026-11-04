@@ -141,6 +141,7 @@ async function statePayload() {
     activeFarm: servers.activeFarm,
     bots,
     qqFlags: pusher.qqFlags(),
+    qqFarms: pusher.qqFarms(),
     last: compatLast(pusher.lastResult),
     lastRaw: pusher.lastResult,
     logs: logRing.slice(-80),
@@ -152,6 +153,7 @@ function compatLast(r) {
   if (!r) return null
   const items = (r.items || []).map(i => ({
     selfId: i.selfId, nickname: i.nickname, platform: i.platform,
+    farmUrl: i.farmUrl || '', farmLabel: i.farmLabel || '',
     level: i.level || 0,
     farmState: i.farmState || '',
     action: i.action || '',
@@ -249,6 +251,17 @@ async function handler(req, res, secure = true) {
     if (selfId && pusher.busy) return json(409, { error: '正在推送中，请稍候再试' })
     const r = await pusher.push(selfId ? '手动推送 ' + selfId : '手动', selfId ? { selfId, force: body.force !== false } : {})
     return json(200, { last: compatLast(r), lastRaw: r })
+  }
+
+  // 单个 QQ 的推送目标农场（管理页下拉框）
+  if (path === '/api/qq/farm' && req.method === 'POST') {
+    try {
+      const body = JSON.parse((await readBody()) || '{}')
+      const selfId = String(body.selfId ?? '').trim()
+      if (!/^\d{5,12}$/.test(selfId)) return json(400, { error: 'selfId 不合法' })
+      pusher.setQqFarm(selfId, String(body.baseUrl || ''))
+      return json(200, await statePayload())
+    } catch (e) { return json(400, { error: String(e?.message || e) }) }
   }
 
   // 单个 QQ 的推送开关（管理页复选框）

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>QQ农场助手桥接</title>
+<title>QQ农场助手</title>
 <script>
   // 主题：优先本地记忆，其次跟随系统（避免首屏闪烁）
   (function () {
@@ -44,7 +44,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,
 .cardhead h2{margin:0}
 .cardhead .msg{margin-left:auto}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
+.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
 input,select{background:var(--input-bg);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px;min-width:0}
 input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
 input[type=checkbox]:disabled{cursor:progress;opacity:.5}
@@ -69,13 +69,22 @@ tbody tr:hover{background:var(--farm-bg)}
 pre{background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:220px;overflow:auto;font-size:12px;color:var(--dim);margin:0}
 .farm{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--farm-bg)}
 .farm.active{border-color:var(--acc)}
+.farm .val{padding:7px 0;font-size:13px;color:var(--fg)}
+.farm .val.dim{color:var(--dim)}
+.farmlink{color:var(--acc);text-decoration:none;padding:7px 0;font-size:13px;word-break:break-all}
+.farmlink:hover{text-decoration:underline}
 .spacer{flex:1}
 .sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
 .sw span{font-size:12px;color:var(--dim)}
+.qqst{color:var(--dim);font-size:12px;margin-left:1px}
+.qqst.ok{color:var(--ok)}
+.qqst.warn{color:var(--warn)}
+.qqst.bad{color:var(--bad)}
+select.farmsel{padding:3px 6px;font-size:12px;border-radius:6px;max-width:160px}
 </style></head>
 <body><div class="wrap">
   <div class="head">
-    <h1>QQ农场助手桥接</h1><span class="ver" id="ver">v-</span><a id="repo" href="https://github.com/coolxy/mengkaNT-qq-farm-bridge" target="_blank" rel="noopener" style="color:var(--acc);font-size:12px">GitHub 仓库</a><span class="ver">· 插件管理页（本页）</span>
+    <h1>QQ农场助手</h1><span class="ver" id="ver">v-</span><a id="repo" href="https://github.com/coolxy/mengkaNT-qq-farm-bridge" target="_blank" rel="noopener" style="color:var(--acc);font-size:12px">GitHub 仓库</a><span class="ver">· 插件管理页（本页）</span>
     <div class="spacer"></div>
     <button class="iconbtn" id="theme" type="button" title="切换白天/夜间" aria-label="切换白天/夜间">
       <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -159,8 +168,10 @@ function actionPill(a) {
 
 var FARMS = [], ACTIVE = 0, OPT = {}, BOTMAP = {}
 var DIRTY = false, PUSHING = {}
+var EDITING = {}   // 服务器管理里正在编辑的行（索引 → true）
 // 正在编辑（焦点在输入框）或改过未保存时，暂停对表单区域的重绘，避免输入被轮询打断
 function editBlocked() {
+  for (var k in EDITING) { if (EDITING[k]) return true }
   var ae = document.activeElement
   if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
     if (ae.closest && ae.closest('#farms')) return true
@@ -169,26 +180,95 @@ function editBlocked() {
   return DIRTY
 }
 function qqEnabled(id) { return BOTMAP[id] !== false }
+function farmHref(u) {
+  var s = String(u || '').trim()
+  if (!s) return ''
+  return /^https?:\/\//i.test(s) ? s : 'http://' + s
+}
+
+function saveFarm(i) {
+  var f = FARMS[i] || {}
+  if (!String(f.baseUrl || '').trim()) {
+    $('saveMsg').className = 'msg bad'
+    $('saveMsg').textContent = '服务器地址不能为空'
+    return
+  }
+  var body = {
+    activeFarm: ACTIVE,
+    farms: FARMS.map(function (x) { return { baseUrl: x.baseUrl, username: x.username, password: x.password || '' } })
+  }
+  $('saveMsg').className = 'msg'
+  $('saveMsg').textContent = '保存中…'
+  api('/api/farms', { method: 'POST', body: JSON.stringify(body) })
+    .then(function (s) {
+      DIRTY = false; EDITING = {}
+      paint(s)
+      $('saveMsg').className = 'msg ok'
+      $('saveMsg').textContent = '已保存'
+    })
+    .catch(function (e) {
+      $('saveMsg').className = 'msg bad'
+      $('saveMsg').textContent = '保存失败：' + e.message
+    })
+}
+
 function renderFarms() {
   var h = ''
   for (var i = 0; i < FARMS.length; i++) {
-    var f = FARMS[i]
+    var f = FARMS[i], editing = !!EDITING[i]
     h += '<div class="farm' + (i === ACTIVE ? ' active' : '') + '">'
-      + '<div class="row"><label class="f"><span><input type="radio" name="act" value="' + i + '"' + (i === ACTIVE ? ' checked' : '') + '/> 推送目标</span></label>'
-      + '<label class="f">地址<input data-i="' + i + '" data-k="baseUrl" value="' + esc(f.baseUrl) + '" style="width:320px" placeholder="http://ip:3007"/></label>'
-      + '<label class="f">账号<input data-i="' + i + '" data-k="username" value="' + esc(f.username) + '" style="width:120px" placeholder="admin"/></label>'
-      + '<label class="f">密码 / 访问 Code<input data-i="' + i + '" data-k="password" type="password" style="width:160px" placeholder="' + (f.passwordSet ? '已设置，留空不改' : '未设置') + '"/></label>'
-      + '<div class="spacer"></div><button class="danger" data-del="' + i + '">删除</button></div></div>'
+    if (editing) {
+      h += '<div class="row">'
+        + '<label class="f"><span><input type="radio" name="act" value="' + i + '"' + (i === ACTIVE ? ' checked' : '') + '/> 推送目标</span></label>'
+        + '<label class="f">地址<input data-i="' + i + '" data-k="baseUrl" value="' + esc(f.baseUrl) + '" style="width:320px" placeholder="http://ip:3007"/></label>'
+        + '<label class="f">账号<input data-i="' + i + '" data-k="username" value="' + esc(f.username || '') + '" style="width:120px" placeholder="admin"/></label>'
+        + '<label class="f">密码 / 访问 Code<input data-i="' + i + '" data-k="password" type="password" style="width:160px" placeholder="' + (f.passwordSet ? '已设置，留空不改' : '未设置') + '"/></label>'
+        + '<div class="spacer"></div>'
+        + '<button class="primary mini" data-savefarm="' + i + '">保存</button>'
+        + '<button class="mini" data-cancel="' + i + '">取消</button></div>'
+    } else {
+      var href = farmHref(f.baseUrl)
+      h += '<div class="row">'
+        + '<label class="f"><span><input type="radio" name="act" value="' + i + '"' + (i === ACTIVE ? ' checked' : '') + '/> 推送目标</span></label>'
+        + '<div class="f"><span>地址</span>' + (href
+          ? '<a class="farmlink" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" title="在新标签页打开农场">' + esc(f.baseUrl) + '</a>'
+          : '<span class="val dim">未填写</span>') + '</div>'
+        + '<div class="f"><span>账号</span><span class="val">' + esc(f.username || '-') + '</span></div>'
+        + '<div class="f"><span>密码 / 访问 Code</span><span class="val' + (f.passwordSet ? '' : ' dim') + '">' + (f.passwordSet ? '已设置' : '未设置') + '</span></div>'
+        + '<div class="spacer"></div>'
+        + '<button class="mini" data-edit="' + i + '">编辑</button>'
+        + '<button class="danger mini" data-del="' + i + '">删除</button></div>'
+    }
+    h += '</div>'
   }
   $('farms').innerHTML = h || '<span class="msg">还没有服务器，点下面新增</span>'
-  Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (el) {
+  Array.prototype.forEach.call(document.querySelectorAll('#farms [data-k]'), function (el) {
     el.oninput = function () { DIRTY = true; FARMS[+el.dataset.i][el.dataset.k] = el.value }
   })
   Array.prototype.forEach.call(document.querySelectorAll('input[name=act]'), function (el) {
     el.onchange = function () { ACTIVE = +el.value; renderFarms() }
   })
+  Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (el) {
+    el.onclick = function () { EDITING[+el.dataset.edit] = true; renderFarms() }
+  })
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cancel]'), function (el) {
+    el.onclick = function () {
+      delete EDITING[+el.dataset.cancel]
+      DIRTY = false
+      api('/api/state').then(paint).catch(function () { renderFarms() })
+    }
+  })
+  Array.prototype.forEach.call(document.querySelectorAll('[data-savefarm]'), function (el) {
+    el.onclick = function () { saveFarm(+el.dataset.savefarm) }
+  })
   Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (el) {
-    el.onclick = function () { FARMS.splice(+el.dataset.del, 1); if (ACTIVE >= FARMS.length) ACTIVE = Math.max(0, FARMS.length - 1); renderFarms() }
+    el.onclick = function () {
+      if (!confirm('删除这台服务器？该号的推送农场若指向它，会回到「默认」。')) return
+      FARMS.splice(+el.dataset.del, 1)
+      EDITING = {}
+      if (ACTIVE >= FARMS.length) ACTIVE = Math.max(0, FARMS.length - 1)
+      renderFarms()
+    }
   })
 }
 
@@ -206,11 +286,13 @@ function paintOptions(o) {
 
 // ---- 合并表：账号状态 + 最近一次推送 ----
 // 行顺序固定为 QQ 号升序（长度优先再字典序 = 数值升序）；刷新时只改单元格内容，不重建行，避免顺序跳动与闪烁
-var TH = ['QQ', '自动推送', '昵称', '平台', '等级', '农场状态', 'code 过期', '最近动作', '说明', '操作']
-var KEYS = ['qq', 'on', 'nick', 'plat', 'level', 'state', 'exp', 'act', 'note', 'op']
+var TH = ['QQ', '昵称', '等级', '农场', '自动推送', '农场状态', '操作']
+var KEYS = ['qq', 'nick', 'level', 'farm', 'on', 'state', 'op']
 var TH_TIP = {
-  1: '勾选=参与定时/事件自动推送；不勾选=跳过自动推送，但仍可用行尾「推送」按钮手动推',
-  9: '立即推送该号 code，强制取码，不受自动推送开关限制'
+  0: 'QQ 号后面的括号是它在该农场的状态：绿色=在线，红色=离线/无此号',
+  3: '该号推送目标农场：自动推送和行尾「推送」都发到这一台；「默认」= 跟随上方服务器管理里选中的推送目标',
+  4: '勾选=参与定时/事件自动推送；不勾选=跳过自动推送，但仍可用行尾「推送」按钮手动推',
+  6: '立即推送该号 code 到它选定的农场（强制取码，不受自动推送开关限制）'
 }
 var BOTS = [], LAST = null, QQ_ROWS = {}, QQ_SEQ = null
 
@@ -222,40 +304,101 @@ function aggregateQQ(bots, last) {
   ;(bots || []).forEach(function (b) {
     if (!b || b.selfId == null) return
     var id = String(b.selfId)
-    if (!map[id]) { map[id] = { id: id, online: true }; out.push(map[id]) }
-    map[id].bot = b
+    if (!map[id]) { map[id] = { id: id, online: true, plats: [], bots: [] }; out.push(map[id]) }
+    // 同一个 QQ 可能同时有 PC + 安卓两条记录，全部收集，不能覆盖
+    var plat = b.platform || (b.linux ? 'PC' : 'Android')
+    if (map[id].plats.indexOf(plat) < 0) map[id].plats.push(plat)
+    map[id].bots.push(b)
   })
   ;((last && last.items) || []).forEach(function (i) {
     if (!i || i.selfId == null) return
     var id = String(i.selfId)
-    if (!map[id]) { map[id] = { id: id, online: false }; out.push(map[id]) }
+    if (!map[id]) { map[id] = { id: id, online: false, plats: [], bots: [] }; out.push(map[id]) }
     map[id].last = i
   })
+  out.forEach(function (d) {
+    // 取码优先安卓（手机协议才拿得到农场 code），同一平台内在线优先
+    d.bots.sort(function (a, b) { return rankBot(a) - rankBot(b) })
+    d.bot = d.bots[0] || {}
+    d.plats = []
+    d.bots.forEach(function (b) {
+      var plat = b.platform || (b.linux ? 'PC' : 'Android')
+      if (d.plats.indexOf(plat) < 0) d.plats.push(plat)
+    })
+    d.online = d.bots.some(function (b) { return b.online !== false })
+    // 该号选定的农场（同一 QQ 各协议一致；不在线时用最近一次推送结果里的农场）
+    d.farmUrl = d.bot.farmUrl || (d.last && d.last.farmUrl) || ''
+    d.farmLabel = d.bot.farmLabel || (d.last && d.last.farmLabel) || ''
+    d.farmPinned = !!d.bot.farmPinned
+  })
   return out.sort(function (a, b) { return cmpId(a.id, b.id) })
+}
+
+function rankBot(b) { return ((b.online === false) ? 2 : 0) + (b.linux ? 1 : 0) }
+
+function platShort(p) {
+  var s = String(p || '')
+  if (/android/i.test(s)) return '安卓'
+  if (/pc|linux/i.test(s)) return 'PC'
+  return s || '-'
+}
+
+function hostOf(url) {
+  try { return String(url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '') } catch (e) { return String(url || '') }
+}
+
+function farmSelect(d) {
+  var id = d.id
+  var cur = d.farmPinned ? d.farmUrl : ''
+  var h = '<select class="farmsel" data-qqfarm="' + esc(id) + '" title="该号的推送目标农场；默认 = 跟随上方「服务器管理」里选中的推送目标">'
+  h += '<option value=""' + (cur ? '' : ' selected') + '>默认</option>'
+  var found = false
+  ;(FARMS || []).forEach(function (f) {
+    var label = (f.label || '') + ' · ' + hostOf(f.baseUrl)
+    var sel = cur && f.baseUrl === cur
+    if (sel) found = true
+    h += '<option value="' + esc(f.baseUrl) + '"' + (sel ? ' selected' : '') + '>' + esc(label) + '</option>'
+  })
+  // 选中的农场已被删掉时，保留一个可见项避免静默跳回「默认」
+  if (cur && !found) h += '<option value="' + esc(cur) + '" selected>' + esc(hostOf(cur)) + '（已删除）</option>'
+  return h + '</select>'
 }
 
 function qqCells(d) {
   var b = d.bot || {}, L = d.last || {}, id = d.id
   var on = BOTMAP[id] !== false, busy = !!PUSHING[id]
   var level = b.level || L.level || ''
-  var note = b.farmDetail || L.detail || ''
-  var err = L.error && L.error !== note ? L.error : ''
-  var noteHtml = esc(note) || ''
-  if (err) noteHtml += (noteHtml ? ' ' : '') + '<span class="msg bad">' + esc(err) + '</span>'
+  // QQ 号后面的括号状态：推送失败优先显示原因，否则显示该号在其目标农场的状态
+  var status = (L.action === 'fail' && (L.error || L.detail)) ? (L.error || L.detail) : (b.farmDetail || L.detail || (d.online ? '' : '不在线'))
+  // 外层已经用括号包住，内部括号改成「·」，避免出现（在线（剩余 21 分钟））这种双括号
+  var stText = String(status || '').replace(/[（(]([^（）()]*)[）)]/g, ' · $1')
+  var stCls = qqStatusCls(b.farmState || L.farmState, status, L.action === 'fail')
+  var stHtml = status
+    ? '<span class="qqst' + (stCls ? ' ' + stCls : '') + '"' + (L.error ? ' title="' + esc(L.error) + '"' : '') + '>（' + esc(stText) + '）</span>'
+    : ''
   return {
-    qq: '<span class="mono">' + esc(id) + '</span>' + (d.online ? '' : ' <span class="pill dim">不在线</span>'),
-    on: '<label class="sw"><input type="checkbox" data-qq="' + esc(id) + '"' + (on ? ' checked' : '') + '/><span>' + (on ? '自动' : '仅手动') + '</span></label>',
+    qq: '<span class="mono">' + esc(id) + '</span>' + stHtml,
     nick: esc(b.nickname || L.nickname || '-'),
-    plat: esc(b.platform || '-'),
+    farm: farmSelect(d),
+    on: '<label class="sw"><input type="checkbox" data-qq="' + esc(id) + '"' + (on ? ' checked' : '') + '/><span>' + (on ? '自动' : '仅手动') + '</span></label>',
     level: String(level || '-'),
     state: farmStatePill(b.farmState || L.farmState),
-    exp: '<span class="mono">' + (b.expiresAt ? timeShort(b.expiresAt) : '-') + '</span>',
-    act: L.action ? actionPill(L.action) : '<span class="pill dim">-</span>',
-    note: noteHtml || '-',
     op: '<button class="mini" data-push1="' + esc(id) + '"' + (busy ? ' disabled' : '')
-      + ' title="立即推送该 QQ 的 code（强制取码，忽略在线跳过；不受自动推送开关限制）">'
+      + ' title="立即推送该号 code 到它选定的农场（强制取码，忽略在线跳过；不受自动推送开关限制）">'
       + (busy ? '推送中…' : '推送') + '</button>'
   }
+}
+
+// QQ 号后括号状态配色：在线=绿，离线/无此号/失败=红，其余按灰色
+function qqStatusCls(state, text, fail) {
+  var s = String(text || '')
+  if (state === 'online') return 'ok'
+  if (state === 'offline' || state === 'missing') return 'bad'
+  if (fail) return 'bad'
+  if (state === 'expiring' || state === 'transient') return 'warn'
+  if (/不在线|离线|无此号|未运行|过期|失败/.test(s)) return 'bad'
+  if (/在线/.test(s)) return 'ok'
+  return ''
 }
 
 function paintLastMeta(last) {
@@ -296,7 +439,6 @@ function paintQQ(bots, last) {
     }
     box.innerHTML = h + '</tbody></table>'
     Array.prototype.forEach.call(box.querySelectorAll('tbody tr'), function (tr) { QQ_ROWS[tr.dataset.id] = tr })
-    bindQqToggles(); bindRowPush()
   }
   for (var n = 0; n < list.length; n++) {
     var tr = QQ_ROWS[list[n].id]; if (!tr) continue
@@ -309,34 +451,57 @@ function paintQQ(bots, last) {
   }
 }
 
-function bindQqToggles() {
-  Array.prototype.forEach.call(document.querySelectorAll('[data-qq]'), function (el) {
-    el.onchange = function () {
-      var id = el.dataset.qq, on = el.checked
-      el.disabled = true
-      $('botMsg').className = 'msg'
-      $('botMsg').textContent = '保存 ' + id + ' …'
-      api('/api/qq/enable', { method: 'POST', body: JSON.stringify({ selfId: id, enabled: on }) })
-        .then(function (s) {
-          BOTMAP[id] = on
-          $('botMsg').className = 'msg ok'
-          $('botMsg').textContent = id + (on ? ' 已开启自动推送' : ' 已关闭自动推送（仅保留手动推送）')
-          paint(s)
-        })
-        .catch(function (e) {
-          el.checked = !on; el.disabled = false
-          $('botMsg').className = 'msg bad'
-          $('botMsg').textContent = '保存失败：' + e.message
-        })
-    }
-  })
+// 事件委托：绑在表格容器上，单元格/按钮被刷新重写也不会丢事件
+function toggleQq(el) {
+  var id = el.dataset.qq, on = el.checked
+  el.disabled = true
+  $('botMsg').className = 'msg'
+  $('botMsg').textContent = '保存 ' + id + ' …'
+  api('/api/qq/enable', { method: 'POST', body: JSON.stringify({ selfId: id, enabled: on }) })
+    .then(function (s) {
+      BOTMAP[id] = on
+      $('botMsg').className = 'msg ok'
+      $('botMsg').textContent = id + (on ? ' 已开启自动推送' : ' 已关闭自动推送（仅保留手动推送）')
+      paint(s)
+    })
+    .catch(function (e) {
+      el.checked = !on; el.disabled = false
+      $('botMsg').className = 'msg bad'
+      $('botMsg').textContent = '保存失败：' + e.message
+    })
 }
 
-function bindRowPush() {
-  Array.prototype.forEach.call(document.querySelectorAll('[data-push1]'), function (el) {
-    el.onclick = function () { pushOne(el.dataset.push1) }
-  })
+function setQqFarm(el) {
+  var id = el.dataset.qqfarm, url = el.value
+  el.disabled = true
+  $('botMsg').className = 'msg'
+  $('botMsg').textContent = '保存 ' + id + ' 的推送农场 …'
+  api('/api/qq/farm', { method: 'POST', body: JSON.stringify({ selfId: id, baseUrl: url }) })
+    .then(function (s) {
+      $('botMsg').className = 'msg ok'
+      $('botMsg').textContent = id + (url ? ' 已切换推送农场' : ' 已恢复默认农场（跟随当前推送目标）')
+      paint(s)
+    })
+    .catch(function (e) {
+      el.disabled = false
+      $('botMsg').className = 'msg bad'
+      $('botMsg').textContent = '保存失败：' + e.message
+    })
 }
+
+;(function bindTableEvents() {
+  var box = $('qqtable')
+  box.addEventListener('click', function (e) {
+    var el = e.target.closest ? e.target.closest('[data-push1]') : null
+    if (el && !el.disabled) pushOne(el.dataset.push1)
+  })
+  box.addEventListener('change', function (e) {
+    var t = e.target
+    if (!t || !t.matches) return
+    if (t.matches('[data-qq]')) toggleQq(t)
+    else if (t.matches('[data-qqfarm]')) setQqFarm(t)
+  })
+})()
 
 function pushOne(id) {
   PUSHING[id] = true
@@ -345,12 +510,15 @@ function pushOne(id) {
   paintQQ(BOTS, LAST)
   api('/api/push', { method: 'POST', body: JSON.stringify({ selfId: id, force: true }) })
     .then(function (r) {
-      var it = (r.lastRaw && r.lastRaw.items && r.lastRaw.items[0]) || null
+      // 同一 QQ 可能有多协议候选，结果按 selfId 取，不能直接用 items[0]
+      var items = (r.lastRaw && r.lastRaw.items) || []
+      var it = items.filter(function (x) { return String(x.selfId) === String(id) })[0] || null
       var ok = it && (it.action === 'update' || it.action === 'create')
+      var via = it && it.platform ? '（' + platShort(it.platform) + ' 协议）' : ''
       $('botMsg').className = 'msg ' + (ok ? 'ok' : 'bad')
       $('botMsg').textContent = ok
-        ? (id + ' 推送成功：' + (it.detail || ''))
-        : (id + ' 未推送：' + ((it && (it.error || it.detail)) || (r.last && r.last.error) || '未知原因'))
+        ? (id + ' 推送成功' + via + '：' + (it.detail || ''))
+        : (id + ' 未推送' + via + '：' + ((it && (it.error || it.detail)) || (r.last && r.last.error) || '未知原因'))
       return reload()
     })
     .catch(function (e) {
@@ -387,11 +555,16 @@ $('theme').onclick = function () {
 }
 applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark')
 
-$('add').onclick = function () { FARMS.push({ baseUrl: 'http://', username: 'admin', password: '' }); ACTIVE = FARMS.length - 1; renderFarms() }
+$('add').onclick = function () {
+  FARMS.push({ baseUrl: '', username: 'admin', password: '' })
+  ACTIVE = FARMS.length - 1
+  EDITING[FARMS.length - 1] = true
+  renderFarms()
+}
 $('save').onclick = function () {
   var body = { activeFarm: ACTIVE, farms: FARMS.map(function (f) { return { baseUrl: f.baseUrl, username: f.username, password: f.password || '' } }) }
   api('/api/farms', { method: 'POST', body: JSON.stringify(body) })
-    .then(function (s) { DIRTY = false; paint(s); $('saveMsg').className = 'msg ok'; $('saveMsg').textContent = '已保存' })
+    .then(function (s) { DIRTY = false; EDITING = {}; paint(s); $('saveMsg').className = 'msg ok'; $('saveMsg').textContent = '已保存' })
     .catch(function (e) { $('saveMsg').className = 'msg bad'; $('saveMsg').textContent = '保存失败：' + e.message })
 }
 $('test').onclick = function () {
