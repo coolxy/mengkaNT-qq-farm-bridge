@@ -3,11 +3,11 @@
   "framework_api": "3.0.0",
   "plugin_id": "qq-farm-bridge",
   "name": "QQ农场助手",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "min_framework": "3.0.0",
   "author": "coolxy (ng rewrite base: Carlor-Official)",
   "description": "把萌卡在线 QQ 的农场登录 code 推送到 QQ农场智能助手（qq-farm-bot）。支持多台农场服务器、状态感知推送（已在线跳过、临期才刷新、同一账号原地更新）、定时 + bot_online 事件双触发、管理端健康闸门。",
-  "notes": "v1.3.5：管理页表格精简——移除「平台/code 过期/最近动作/说明」四列，该号在目标农场的状态直接跟在 QQ 号后面（如 258901523（在线），推送失败时红色显示原因）；新增「农场」列，每个 QQ 可自选推送目标服务器（下拉框，默认=跟随服务器管理里选中的推送目标），自动推送与行内「推送」均发往所选农场；v1.3.4：同号双端（PC+安卓）合并，取码安卓优先、失败回退 PC。v1.3.3：合并单表 + 固定排序 + 每 QQ 自动推送开关 + 白天/夜间主题。v1.3.2：适配萌卡 3.0.5 Landlock 沙箱 + Windows 包入口修正。仓库 https://github.com/coolxy/mengkaNT-qq-farm-bridge",
+  "notes": "v1.3.6：适配萌卡 3.0.7 docker 运行方式——包内自带 libstdc++/libgcc_s（distroless 容器缺这些库导致 node 起不来、报「插件未发送有效 hello」），node 入口 rpath 指向 lib/native；数据目录改为依次取 MENGKA_PLUGIN_DATA_DIR → 连接文件 data_directory → 可写 HOME（容器内 /data），不再往只读的 /plugin 写。仓库 https://github.com/coolxy/mengkaNT-qq-farm-bridge",
   "runtime": {
     "entry": "bin/node-linux-amd64",
     "args": [
